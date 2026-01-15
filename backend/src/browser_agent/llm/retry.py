@@ -24,6 +24,7 @@ RETRYABLE_EXCEPTIONS = (
     httpx.NetworkError,
     httpx.ConnectError,
     httpx.ReadTimeout,
+    httpx.HTTPStatusError,  # For 429 and 5xx errors
 )
 
 

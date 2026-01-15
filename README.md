@@ -148,8 +148,15 @@ pip install -e ".[dev]"
 # Install Playwright browsers
 playwright install chromium
 
-# Run backend
+# Run backend with uvicorn (choose one):
+# Option 1: Using the entry point script
+browser-agent
+
+# Option 2: Using uvicorn directly (recommended for development)
 uvicorn browser_agent.main:app --reload --host 0.0.0.0 --port 8000
+
+# Option 3: Running as Python module
+python -m browser_agent.main
 ```
 
 #### Frontend Setup

@@ -30,7 +30,7 @@ class GeminiClient(BaseLLMClient):
         super().__init__(api_key, model or self.DEFAULT_MODEL)
         self._client = httpx.AsyncClient(timeout=120.0)
 
-    @with_retry(max_attempts=3, min_wait=1, max_wait=10)
+    @with_retry(max_attempts=5, min_wait=2, max_wait=30)
     async def chat(
         self,
         messages: list[LLMMessage],
@@ -87,6 +87,8 @@ class GeminiClient(BaseLLMClient):
             raise ValueError("Invalid Gemini API key. Please provide a valid key from https://aistudio.google.com/apikey")
         elif response.status_code == 403:
             raise ValueError("API key does not have access to this model. Check your API key permissions.")
+        elif response.status_code == 429:
+            raise ValueError("Rate limit exceeded. Please wait 1-2 minutes before trying again, or use a different API key/provider.")
         
         response.raise_for_status()
         

@@ -7,7 +7,7 @@ import re
 import time
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, AsyncGenerator, Optional
+from typing import TYPE_CHECKING, Any, AsyncGenerator, Optional
 
 from browser_agent.core.sync_browser import AsyncBrowserAdapter
 from browser_agent.llm import BaseLLMClient, ImageData, LLMMessage, LLMResponse, ToolCall, create_llm_client
@@ -16,6 +16,9 @@ from browser_agent.models.codegen import TestStep
 from browser_agent.services.codegen import CodeGenService
 from browser_agent.telemetry import TelemetryCollector, EventType
 from browser_agent.tools import ToolExecutor, get_tools_for_openai
+
+if TYPE_CHECKING:
+    from browser_agent.services.session import AgentSession
 
 logger = logging.getLogger(__name__)
 
@@ -444,12 +447,14 @@ Remember: Finding something is NOT the same as acting on it. Always verify navig
         self,
         task: str,
         url: str,
+        session: "Optional[AgentSession]" = None,
     ) -> AsyncGenerator[dict, None]:
         """Run the agent to complete a task.
         
         Args:
             task: Natural language description of the task.
             url: Starting URL.
+            session: Optional session for stop functionality.
             
         Yields:
             dict: Events with type 'log', 'screenshot', 'tool', 'code', 'complete', 'error'.
@@ -459,7 +464,7 @@ Remember: Finding something is NOT the same as acting on it. Always verify navig
         
         # Initialize telemetry if enabled
         if self.config.enable_telemetry:
-            self.telemetry = TelemetryCollector(task_description=task, start_url=url)
+            self.telemetry = TelemetryCollector(task=task, url=url)
             yield {"type": "log", "message": "Telemetry enabled"}
         
         # Initialize browser
@@ -546,6 +551,11 @@ Current step: STEP 1
             task_complete = False
             
             while step_count < self.config.max_steps and not task_complete:
+                # Check if stop was requested
+                if session and session.should_stop():
+                    yield {"type": "log", "message": "🛑 Stop requested by user"}
+                    break
+                
                 step_count += 1
                 yield {"type": "log", "message": f"--- Step {step_count} ---"}
                 

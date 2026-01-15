@@ -31,9 +31,9 @@ export default function ReportsTab({ screenshots, code, language }: ReportsTabPr
   ];
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col overflow-hidden">
       {/* Sub-tab Navigation */}
-      <div className="flex items-center gap-1 p-2 border-b border-border bg-surface/50">
+      <div className="flex items-center gap-1 p-2 border-b border-border bg-surface/50 flex-shrink-0">
         {subTabs.map((tab) => (
           <button
             key={tab.id}
@@ -65,7 +65,9 @@ export default function ReportsTab({ screenshots, code, language }: ReportsTabPr
           <ScreenshotGallery screenshots={screenshots} />
         )}
         {activeSubTab === 'code' && (
-          <CodeReport code={code} language={language} />
+          <div className="h-full">
+            <CodeReport code={code} language={language} />
+          </div>
         )}
       </div>
     </div>

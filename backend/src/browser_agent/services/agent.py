@@ -8,6 +8,7 @@ from browser_agent.core.agent import Agent, AgentConfig
 from browser_agent.llm import create_llm_client
 from browser_agent.models import AgentEvent, AgentRequest
 from browser_agent.models.agent import EventType
+from browser_agent.services.session import AgentSession
 
 logger = logging.getLogger(__name__)
 
@@ -29,12 +30,14 @@ class AgentService:
         self,
         request: AgentRequest,
         api_key: Optional[str] = None,
+        session: Optional[AgentSession] = None,
     ) -> AsyncGenerator[AgentEvent, None]:
         """Execute the agent loop and yield events.
         
         Args:
             request: The agent request containing task details and configuration.
             api_key: Resolved API key (from header, body, or environment).
+            session: Optional session for stop functionality.
             
         Yields:
             AgentEvent: Events including logs, screenshots, code, and errors.
@@ -90,7 +93,16 @@ class AgentService:
         agent = Agent(llm_client=llm_client, config=config)
         
         try:
-            async for event in agent.run(task=request.task, url=request.url):
+            async for event in agent.run(task=request.task, url=request.url, session=session):
+                # Check if stop was requested
+                if session and session.should_stop():
+                    yield AgentEvent(
+                        type=EventType.LOG,
+                        message="Stop signal received, cleaning up...",
+                        timestamp=datetime.utcnow(),
+                    )
+                    break
+                    
                 yield self._convert_event(event)
         except Exception as e:
             import traceback

@@ -82,9 +82,9 @@ export default function CodeReport({ code, language }: CodeReportProps) {
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full overflow-hidden">
       {/* Header Controls */}
-      <div className="flex items-center justify-between p-4 border-b border-border bg-surface/50">
+      <div className="flex items-center justify-between p-4 border-b border-border bg-surface/50 flex-shrink-0">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 px-3 py-1.5 bg-surface border border-border rounded-lg">
             <Code className="w-4 h-4 text-primary" />
@@ -123,24 +123,26 @@ export default function CodeReport({ code, language }: CodeReportProps) {
       </div>
 
       {/* Editor */}
-      <div className="flex-1 min-h-0">
-        <Editor
-          height="100%"
-          language={getMonacoLanguage(language)}
-          value={code}
-          theme={theme === 'dark' ? 'vs-dark' : 'light'}
-          options={{
-            readOnly: true,
-            minimap: { enabled: true },
-            fontSize: 14,
-            lineNumbers: 'on',
-            scrollBeyondLastLine: false,
-            wordWrap: 'on',
-            padding: { top: 16, bottom: 16 },
-            renderLineHighlight: 'all',
-            smoothScrolling: true,
-          }}
-        />
+      <div className="flex-1 min-h-[500px] overflow-hidden relative">
+        <div className="absolute inset-0">
+          <Editor
+            height="100%"
+            language={getMonacoLanguage(language)}
+            value={code}
+            theme={theme === 'dark' ? 'vs-dark' : 'light'}
+            options={{
+              readOnly: true,
+              minimap: { enabled: true },
+              fontSize: 14,
+              lineNumbers: 'on',
+              scrollBeyondLastLine: false,
+              wordWrap: 'on',
+              padding: { top: 16, bottom: 16 },
+              renderLineHighlight: 'all',
+              smoothScrolling: true,
+            }}
+          />
+        </div>
       </div>
     </div>
   );

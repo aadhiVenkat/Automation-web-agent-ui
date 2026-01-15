@@ -11,7 +11,7 @@ import { Language } from './types';
 type MainTab = 'configuration' | 'task-details' | 'reports';
 
 function AppContent() {
-  const { logs, code, screenshots, isRunning, error, runAgent, clearError } = useAgent();
+  const { logs, code, screenshots, isRunning, error, runAgent, stopAgent, clearError } = useAgent();
   const [language, setLanguage] = useState<Language>('typescript');
   const [activeTab, setActiveTab] = useState<MainTab>('configuration');
 
@@ -112,6 +112,7 @@ function AppContent() {
           {activeTab === 'configuration' && (
             <ConfigurationTab 
               onSubmit={handleRunAgent} 
+              onStop={stopAgent}
               isRunning={isRunning} 
             />
           )}
@@ -121,6 +122,7 @@ function AppContent() {
               isRunning={isRunning}
               screenshotCount={screenshots.length}
               hasCode={!!code}
+              onStop={stopAgent}
             />
           )}
           {activeTab === 'reports' && (

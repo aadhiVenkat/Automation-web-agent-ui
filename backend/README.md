@@ -143,10 +143,24 @@ backend/
    # Edit .env with your API keys
    ```
 
-6. **Run the development server:**
+6. **Run the development server with uvicorn:**
    ```bash
+   # Option 1: Using the entry point script
+   browser-agent
+
+   # Option 2: Using uvicorn directly (recommended for development)
    uvicorn browser_agent.main:app --reload --host 0.0.0.0 --port 8000
+
+   # Option 3: Running as Python module
+   python -m browser_agent.main
    ```
+
+   **Uvicorn options:**
+   - `--reload`: Auto-reload on code changes (development only)
+   - `--host 0.0.0.0`: Listen on all interfaces
+   - `--port 8000`: Server port (default: 8000)
+   - `--workers 4`: Number of worker processes (production)
+   - `--log-level info`: Logging level (debug, info, warning, error)
 
 ## ⚙️ Configuration
 

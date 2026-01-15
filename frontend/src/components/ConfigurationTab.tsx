@@ -1,14 +1,48 @@
-import { useState, FormEvent } from 'react';
+import { useState, useEffect, FormEvent } from 'react';
 import { 
   Play, Key, Globe, Code, FileText, Monitor, ListChecks, Zap, 
-  User, Lock, ChevronDown, ChevronUp, Settings2, Cpu
+  User, Lock, ChevronDown, ChevronUp, Settings2, Cpu, Square
 } from 'lucide-react';
 import { AgentConfig, LLMProvider, Framework, Language } from '../types';
 
 interface ConfigurationTabProps {
   onSubmit: (config: AgentConfig) => void;
+  onStop: () => void;
   isRunning: boolean;
 }
+
+const STORAGE_KEY = 'browserforge-config';
+
+interface PersistedConfig {
+  provider: LLMProvider;
+  apiKey: string;
+  url: string;
+  task: string;
+  framework: Framework;
+  language: Language;
+  headless: boolean;
+  useBoostPrompt: boolean;
+  useStructuredExecution: boolean;
+  urlUsername: string;
+  urlPassword: string;
+}
+
+const getPersistedConfig = (): Partial<PersistedConfig> => {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    return stored ? JSON.parse(stored) : {};
+  } catch {
+    return {};
+  }
+};
+
+const persistConfig = (config: PersistedConfig) => {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+  } catch {
+    // Ignore storage errors
+  }
+};
 
 const PROVIDERS: { value: LLMProvider; label: string; description: string }[] = [
   { value: 'gemini', label: 'Google Gemini', description: 'Best for general tasks' },
@@ -26,20 +60,39 @@ const LANGUAGES: { value: Language; label: string; icon: string }[] = [
   { value: 'javascript', label: 'JavaScript', icon: 'JS' },
 ];
 
-export default function ConfigurationTab({ onSubmit, isRunning }: ConfigurationTabProps) {
-  const [provider, setProvider] = useState<LLMProvider>('gemini');
-  const [apiKey, setApiKey] = useState('');
-  const [url, setUrl] = useState('');
-  const [task, setTask] = useState('');
-  const [framework, setFramework] = useState<Framework>('playwright');
-  const [language, setLanguage] = useState<Language>('typescript');
-  const [headless, setHeadless] = useState<boolean>(false);
-  const [useBoostPrompt, setUseBoostPrompt] = useState<boolean>(true);
-  const [useStructuredExecution, setUseStructuredExecution] = useState<boolean>(false);
+export default function ConfigurationTab({ onSubmit, onStop, isRunning }: ConfigurationTabProps) {
+  const persisted = getPersistedConfig();
+  
+  const [provider, setProvider] = useState<LLMProvider>(persisted.provider ?? 'gemini');
+  const [apiKey, setApiKey] = useState(persisted.apiKey ?? '');
+  const [url, setUrl] = useState(persisted.url ?? '');
+  const [task, setTask] = useState(persisted.task ?? '');
+  const [framework, setFramework] = useState<Framework>(persisted.framework ?? 'playwright');
+  const [language, setLanguage] = useState<Language>(persisted.language ?? 'typescript');
+  const [headless, setHeadless] = useState<boolean>(persisted.headless ?? false);
+  const [useBoostPrompt, setUseBoostPrompt] = useState<boolean>(persisted.useBoostPrompt ?? true);
+  const [useStructuredExecution, setUseStructuredExecution] = useState<boolean>(persisted.useStructuredExecution ?? false);
   const [showUrlAuth, setShowUrlAuth] = useState<boolean>(false);
   const [showAdvanced, setShowAdvanced] = useState<boolean>(false);
-  const [urlUsername, setUrlUsername] = useState('');
-  const [urlPassword, setUrlPassword] = useState('');
+  const [urlUsername, setUrlUsername] = useState(persisted.urlUsername ?? '');
+  const [urlPassword, setUrlPassword] = useState(persisted.urlPassword ?? '');
+
+  // Persist config whenever any value changes
+  useEffect(() => {
+    persistConfig({
+      provider,
+      apiKey,
+      url,
+      task,
+      framework,
+      language,
+      headless,
+      useBoostPrompt,
+      useStructuredExecution,
+      urlUsername,
+      urlPassword,
+    });
+  }, [provider, apiKey, url, task, framework, language, headless, useBoostPrompt, useStructuredExecution, urlUsername, urlPassword]);
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -390,24 +443,28 @@ export default function ConfigurationTab({ onSubmit, isRunning }: ConfigurationT
           )}
         </section>
 
-        {/* Submit Button */}
-        <button
-          type="submit"
-          disabled={!isValid || isRunning}
-          className="w-full flex items-center justify-center gap-3 bg-primary hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-4 px-6 rounded-xl transition-all shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30"
-        >
+        {/* Submit / Stop Button */}
+        <div className="flex gap-3">
           {isRunning ? (
-            <>
-              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              Running Agent...
-            </>
+            <button
+              type="button"
+              onClick={onStop}
+              className="w-full flex items-center justify-center gap-3 bg-error hover:bg-error/90 text-white font-semibold py-4 px-6 rounded-xl transition-all shadow-lg shadow-error/20 hover:shadow-xl hover:shadow-error/30"
+            >
+              <Square className="w-5 h-5" />
+              Stop Agent
+            </button>
           ) : (
-            <>
+            <button
+              type="submit"
+              disabled={!isValid}
+              className="w-full flex items-center justify-center gap-3 bg-primary hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-4 px-6 rounded-xl transition-all shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30"
+            >
               <Play className="w-5 h-5" />
               Run Agent
-            </>
+            </button>
           )}
-        </button>
+        </div>
       </form>
     </div>
   );

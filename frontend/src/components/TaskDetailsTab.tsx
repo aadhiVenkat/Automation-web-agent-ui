@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { 
   Terminal, CheckCircle, XCircle, Wrench, Info, Copy, Check, 
-  Clock, Activity, Loader2, AlertTriangle
+  Clock, Activity, Loader2, AlertTriangle, Square
 } from 'lucide-react';
 import { LogEntry } from '../types';
 
@@ -10,6 +10,7 @@ interface TaskDetailsTabProps {
   isRunning: boolean;
   screenshotCount: number;
   hasCode: boolean;
+  onStop?: () => void;
 }
 
 const getLogIcon = (type: LogEntry['type']) => {
@@ -38,7 +39,7 @@ const getLogColor = (type: LogEntry['type']) => {
   }
 };
 
-export default function TaskDetailsTab({ logs, isRunning, screenshotCount, hasCode }: TaskDetailsTabProps) {
+export default function TaskDetailsTab({ logs, isRunning, screenshotCount, hasCode, onStop }: TaskDetailsTabProps) {
   const logsEndRef = useRef<HTMLDivElement>(null);
   const [copied, setCopied] = useState(false);
 
@@ -148,6 +149,16 @@ export default function TaskDetailsTab({ logs, isRunning, screenshotCount, hasCo
                 Copy
               </>
             )}
+          </button>
+        )}
+        {isRunning && onStop && (
+          <button
+            onClick={onStop}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-error hover:bg-error/90 text-white rounded-lg transition-colors"
+            title="Stop agent"
+          >
+            <Square className="w-4 h-4" />
+            Stop
           </button>
         )}
       </div>

@@ -90,23 +90,25 @@ export default function CodeEditor({ code, language }: CodeEditorProps) {
         </div>
       </div>
 
-      <div className="flex-1 min-h-0">
+      <div className="flex-1 min-h-0 overflow-hidden relative">
         {code ? (
-          <Editor
-            height="100%"
-            language={getMonacoLanguage(language)}
-            value={code}
-            theme="vs-dark"
-            options={{
-              readOnly: true,
-              minimap: { enabled: false },
-              fontSize: 14,
-              lineNumbers: 'on',
-              scrollBeyondLastLine: false,
-              wordWrap: 'on',
-              padding: { top: 16 },
-            }}
-          />
+          <div className="absolute inset-0">
+            <Editor
+              height="100%"
+              language={getMonacoLanguage(language)}
+              value={code}
+              theme="vs-dark"
+              options={{
+                readOnly: true,
+                minimap: { enabled: false },
+                fontSize: 14,
+                lineNumbers: 'on',
+                scrollBeyondLastLine: false,
+                wordWrap: 'on',
+                padding: { top: 16 },
+              }}
+            />
+          </div>
         ) : (
           <div className="flex items-center justify-center h-full text-muted">
             <div className="text-center">

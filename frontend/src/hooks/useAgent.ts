@@ -7,7 +7,9 @@ interface UseAgentReturn {
   screenshots: string[];
   isRunning: boolean;
   error: string | null;
+  sessionId: string | null;
   runAgent: (config: AgentConfig) => Promise<void>;
+  stopAgent: () => Promise<void>;
   clearLogs: () => void;
   clearError: () => void;
 }
@@ -27,6 +29,7 @@ export function useAgent(): UseAgentReturn {
   const [screenshots, setScreenshots] = useState<string[]>([]);
   const [isRunning, setIsRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [sessionId, setSessionId] = useState<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
   const clearLogs = useCallback(() => {
@@ -34,14 +37,21 @@ export function useAgent(): UseAgentReturn {
     setCode('');
     setScreenshots([]);
     setError(null);
+    setSessionId(null);
   }, []);
 
   const clearError = useCallback(() => {
     setError(null);
   }, []);
 
-  const processEvent = useCallback((event: AgentEvent) => {
+  const processEvent = useCallback((event: AgentEvent & { session_id?: string }) => {
     console.log('Processing event:', event);
+    
+    // Handle session event (first event from backend)
+    if ('session_id' in event && event.session_id) {
+      setSessionId(event.session_id);
+      return;
+    }
     
     switch (event.type) {
       case 'log':
@@ -170,8 +180,36 @@ export function useAgent(): UseAgentReturn {
     } finally {
       setIsRunning(false);
       abortControllerRef.current = null;
+      setSessionId(null);
     }
   }, [clearLogs, processEvent]);
+
+  const stopAgent = useCallback(async () => {
+    // First, abort the fetch request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    
+    // Then, call the backend stop endpoint if we have a session
+    if (sessionId) {
+      try {
+        setLogs((prev) => [...prev, createLogEntry('info', 'Stopping agent...')]);
+        
+        const response = await fetch(`/api/agent/stop/${sessionId}`, {
+          method: 'POST',
+        });
+        
+        if (response.ok) {
+          setLogs((prev) => [...prev, createLogEntry('info', 'Agent stop requested')]);
+        }
+      } catch (err) {
+        console.error('Failed to stop agent:', err);
+      }
+    }
+    
+    setIsRunning(false);
+    setSessionId(null);
+  }, [sessionId]);
 
   return {
     logs,
@@ -179,7 +217,9 @@ export function useAgent(): UseAgentReturn {
     screenshots,
     isRunning,
     error,
+    sessionId,
     runAgent,
+    stopAgent,
     clearLogs,
     clearError,
   };

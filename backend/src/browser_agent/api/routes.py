@@ -16,12 +16,13 @@ from browser_agent.ratelimit import limiter
 from browser_agent.security import get_api_key, resolve_api_key
 from browser_agent.services.agent import AgentService
 from browser_agent.services.codegen import CodeGenService
+from browser_agent.services.session import get_session_manager, AgentSession
 
 router = APIRouter(prefix="/api", tags=["agent"])
 settings = get_settings()
 
 
-async def event_generator(request: AgentRequest, api_key: str) -> AsyncGenerator[dict, None]:
+async def event_generator(request: AgentRequest, api_key: str, session: AgentSession) -> AsyncGenerator[dict, None]:
     """Generate SSE events from the agent service.
     
     This generator yields events as they are produced by the agent,
@@ -30,11 +31,32 @@ async def event_generator(request: AgentRequest, api_key: str) -> AsyncGenerator
     Args:
         request: The agent request.
         api_key: Resolved API key for the LLM provider.
+        session: The agent session for tracking and stop functionality.
     """
     agent_service = AgentService()
+    session_manager = get_session_manager()
+    
+    # Send session ID as first event so frontend can track it
+    yield {
+        "event": "session",
+        "data": json.dumps({"session_id": session.session_id}),
+    }
     
     try:
-        async for event in agent_service.run(request, api_key):
+        async for event in agent_service.run(request, api_key, session):
+            # Check if stop was requested
+            if session.should_stop():
+                stop_event = AgentEvent(
+                    type=EventType.COMPLETE,
+                    message="Agent stopped by user",
+                    timestamp=datetime.utcnow(),
+                )
+                yield {
+                    "event": "complete",
+                    "data": stop_event.model_dump_json(),
+                }
+                break
+            
             yield {
                 "event": event.type.value,
                 "data": event.model_dump_json(),
@@ -49,6 +71,11 @@ async def event_generator(request: AgentRequest, api_key: str) -> AsyncGenerator
             "event": "error",
             "data": error_event.model_dump_json(),
         }
+    finally:
+        session.mark_completed()
+        # Cleanup after a short delay to allow any pending responses
+        await asyncio.sleep(1)
+        session_manager.remove_session(session.session_id)
 
 
 @router.post(
@@ -105,7 +132,81 @@ async def run_agent(
     # Resolve API key from header, body, or environment
     api_key = resolve_api_key(x_api_key, agent_request.api_key, agent_request.provider)
     
-    return EventSourceResponse(event_generator(agent_request, api_key))
+    # Create a session for this agent run
+    session_manager = get_session_manager()
+    session = session_manager.create_session()
+    
+    return EventSourceResponse(event_generator(agent_request, api_key, session))
+
+
+@router.post(
+    "/agent/stop/{session_id}",
+    summary="Stop a running agent",
+    description="""
+    Stop a running browser automation agent by session ID.
+    
+    The session ID is provided in the first SSE event when starting an agent.
+    This will gracefully stop the agent and close the browser.
+    """,
+    responses={
+        200: {"description": "Agent stop requested successfully"},
+        404: {"description": "Session not found or already completed"},
+    },
+)
+async def stop_agent(session_id: str) -> dict:
+    """Stop a running agent by session ID."""
+    session_manager = get_session_manager()
+    
+    if session_manager.stop_session(session_id):
+        return {
+            "status": "stopping",
+            "session_id": session_id,
+            "message": "Agent stop requested",
+        }
+    
+    raise HTTPException(
+        status_code=404,
+        detail=f"Session {session_id} not found or already completed",
+    )
+
+
+@router.post(
+    "/agent/stop-all",
+    summary="Stop all running agents",
+    description="Stop all currently running browser automation agents.",
+    responses={
+        200: {"description": "All agents stopped"},
+    },
+)
+async def stop_all_agents() -> dict:
+    """Stop all running agents."""
+    session_manager = get_session_manager()
+    count = session_manager.stop_all_sessions()
+    
+    return {
+        "status": "success",
+        "stopped_count": count,
+        "message": f"Requested stop for {count} running agent(s)",
+    }
+
+
+@router.get(
+    "/agent/sessions",
+    summary="List active agent sessions",
+    description="Get a list of all currently active agent session IDs.",
+    responses={
+        200: {"description": "List of active sessions"},
+    },
+)
+async def list_sessions() -> dict:
+    """List all active agent sessions."""
+    session_manager = get_session_manager()
+    sessions = session_manager.get_active_sessions()
+    
+    return {
+        "active_sessions": sessions,
+        "count": len(sessions),
+    }
 
 
 @router.post(
