@@ -1,0 +1,86 @@
+{# Playwright Python test template #}
+import pytest
+from playwright.sync_api import Page, expect
+
+def test_generated(page: Page):
+    """Generated Playwright test."""
+{% for step in steps %}
+    {% set action = step.action.lower() %}
+    {% if action == 'navigate' %}
+    # Navigate to URL
+    page.goto("{{ step.value }}")
+    {% elif action == 'click' %}
+    # Click element
+    page.click("{{ step.selector }}")
+    {% elif action == 'click_text' %}
+    # Click by text
+    page.get_by_text("{{ step.value }}").click()
+    {% elif action == 'click_nth' %}
+    # Click nth element
+    page.locator("{{ step.selector }}").nth({{ step.value or 0 }}).click()
+    {% elif action == 'double_click' %}
+    # Double click element
+    page.dblclick("{{ step.selector }}")
+    {% elif action == 'fill' %}
+    # Fill input field
+    page.fill("{{ step.selector }}", "{{ step.value }}")
+    {% elif action == 'type' %}
+    # Type text
+    page.type("{{ step.selector }}", "{{ step.value }}")
+    {% elif action == 'press' %}
+    # Press key
+    {% if step.selector %}
+    page.press("{{ step.selector }}", "{{ step.value }}")
+    {% else %}
+    page.keyboard.press("{{ step.value }}")
+    {% endif %}
+    {% elif action == 'hover' %}
+    # Hover over element
+    page.hover("{{ step.selector }}")
+    {% elif action == 'select' %}
+    # Select option
+    page.select_option("{{ step.selector }}", "{{ step.value }}")
+    {% elif action == 'check' %}
+    # Check checkbox
+    page.check("{{ step.selector }}")
+    {% elif action == 'uncheck' %}
+    # Uncheck checkbox
+    page.uncheck("{{ step.selector }}")
+    {% elif action == 'scroll' %}
+    # Scroll page
+    {% if step.value and ':' in step.value %}
+    {% set parts = step.value.split(':') %}
+    {% if parts[0] == 'up' %}
+    page.mouse.wheel(0, -{{ parts[1] }})
+    {% else %}
+    page.mouse.wheel(0, {{ parts[1] }})
+    {% endif %}
+    {% else %}
+    page.mouse.wheel(0, 500)
+    {% endif %}
+    {% elif action == 'scroll_to' %}
+    # Scroll element into view
+    page.locator("{{ step.selector }}").scroll_into_view_if_needed()
+    {% elif action == 'wait' %}
+    # Wait for timeout
+    page.wait_for_timeout({{ step.value or 1000 }})
+    {% elif action == 'wait_for' %}
+    {% if step.expected == 'visible' %}
+    # Wait for element to be visible
+    page.locator("{{ step.selector }}").wait_for(state="visible")
+    {% else %}
+    # Wait for element
+    page.wait_for_selector("{{ step.selector }}")
+    {% endif %}
+    {% elif action in ['assert', 'expect'] %}
+    {% if step.expected %}
+    # Assert element contains text
+    expect(page.locator("{{ step.selector }}")).to_contain_text("{{ step.expected }}")
+    {% else %}
+    # Assert element is visible
+    expect(page.locator("{{ step.selector }}")).to_be_visible()
+    {% endif %}
+    {% else %}
+    # {{ step.action }}: {{ step.selector or step.value or '' }}
+    {% endif %}
+{% endfor %}

@@ -1,0 +1,85 @@
+{# Playwright TypeScript test template #}
+import { test, expect } from '@playwright/test';
+
+test('generated test', async ({ page }) => {
+{% for step in steps %}
+  {% set action = step.action.lower() %}
+  {% if action == 'navigate' %}
+  // Navigate to URL
+  await page.goto('{{ step.value }}');
+  {% elif action == 'click' %}
+  // Click element
+  await page.click('{{ step.selector }}');
+  {% elif action == 'click_text' %}
+  // Click by text
+  await page.getByText('{{ step.value }}').click();
+  {% elif action == 'click_nth' %}
+  // Click nth element
+  await page.locator('{{ step.selector }}').nth({{ step.value or 0 }}).click();
+  {% elif action == 'double_click' %}
+  // Double click element
+  await page.dblclick('{{ step.selector }}');
+  {% elif action == 'fill' %}
+  // Fill input field
+  await page.fill('{{ step.selector }}', '{{ step.value }}');
+  {% elif action == 'type' %}
+  // Type text
+  await page.type('{{ step.selector }}', '{{ step.value }}');
+  {% elif action == 'press' %}
+  // Press key
+  {% if step.selector %}
+  await page.press('{{ step.selector }}', '{{ step.value }}');
+  {% else %}
+  await page.keyboard.press('{{ step.value }}');
+  {% endif %}
+  {% elif action == 'hover' %}
+  // Hover over element
+  await page.hover('{{ step.selector }}');
+  {% elif action == 'select' %}
+  // Select option
+  await page.selectOption('{{ step.selector }}', '{{ step.value }}');
+  {% elif action == 'check' %}
+  // Check checkbox
+  await page.check('{{ step.selector }}');
+  {% elif action == 'uncheck' %}
+  // Uncheck checkbox
+  await page.uncheck('{{ step.selector }}');
+  {% elif action == 'scroll' %}
+  // Scroll page
+  {% if step.value and ':' in step.value %}
+  {% set parts = step.value.split(':') %}
+  {% if parts[0] == 'up' %}
+  await page.mouse.wheel(0, -{{ parts[1] }});
+  {% else %}
+  await page.mouse.wheel(0, {{ parts[1] }});
+  {% endif %}
+  {% else %}
+  await page.mouse.wheel(0, 500);
+  {% endif %}
+  {% elif action == 'scroll_to' %}
+  // Scroll element into view
+  await page.locator('{{ step.selector }}').scrollIntoViewIfNeeded();
+  {% elif action == 'wait' %}
+  // Wait for timeout
+  await page.waitForTimeout({{ step.value or 1000 }});
+  {% elif action == 'wait_for' %}
+  {% if step.expected == 'visible' %}
+  // Wait for element to be visible
+  await page.locator('{{ step.selector }}').waitFor({ state: 'visible' });
+  {% else %}
+  // Wait for element
+  await page.waitForSelector('{{ step.selector }}');
+  {% endif %}
+  {% elif action in ['assert', 'expect'] %}
+  {% if step.expected %}
+  // Assert element contains text
+  await expect(page.locator('{{ step.selector }}')).toContainText('{{ step.expected }}');
+  {% else %}
+  // Assert element is visible
+  await expect(page.locator('{{ step.selector }}')).toBeVisible();
+  {% endif %}
+  {% else %}
+  // {{ step.action }}: {{ step.selector or step.value or '' }}
+  {% endif %}
+{% endfor %}
+});

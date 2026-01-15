@@ -1,0 +1,67 @@
+# .gitignore file
+# Add files and directories to be ignored by your tools here.
+
+# Node.js / JavaScript / TypeScript
+node_modules/
+dist/
+build/
+*.log
+.npm/
+.yarn/
+.pnpm-store/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+ENV/
+env/
+*.egg-info/
+*.egg
+.eggs/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+*.cover
+.hypothesis/
+.nox/
+.tox/
+
+# Environment files
+.env
+.env.*
+*.env
+!.env.example
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Coverage
+coverage/
+
+# Logs
+logs/
+*.log
+
+# Playwright
+playwright-report/
+test-results/
+
+# Docker
+*.log
