@@ -6,27 +6,90 @@
   box-sizing: border-box;
 }
 
-body {
-  margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
-    Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+/* Theme CSS Variables */
+:root {
+  /* Light theme (default) - softer, less bright */
+  --color-background: #f5f5f7;
+  --color-foreground: #1a1a2e;
+  --color-surface: #eeeef1;
+  --color-surface-hover: #e4e4e9;
+  --color-surface-alt: #dcdce3;
+  --color-card: #f0f0f3;
+  --color-border: #d4d4dc;
+  --color-muted: #5c5c6d;
 }
 
-/* Custom scrollbar for dark theme */
+.dark {
+  /* Dark theme */
+  --color-background: #0a0a0f;
+  --color-foreground: #fafafa;
+  --color-surface: #141419;
+  --color-surface-hover: #1e1e26;
+  --color-surface-alt: #0d0d12;
+  --color-card: #18181f;
+  --color-border: #27272f;
+  --color-muted: #71717a;
+}
+
+body {
+  margin: 0;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
+    Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #1a1a1a;
+  background: var(--color-surface-alt);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #3a3a3a;
+  background: var(--color-border);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #4a4a4a;
+  background: var(--color-muted);
+}
+
+/* Selection styling */
+::selection {
+  background-color: rgba(59, 130, 246, 0.3);
+}
+
+/* Smooth transitions for theme switching */
+*, *::before, *::after {
+  transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* Prevent transition on page load */
+.no-transition * {
+  transition: none !important;
+}
+
+/* Focus styles */
+*:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+/* Custom input styles for dark mode */
+.dark input,
+.dark select,
+.dark textarea {
+  color-scheme: dark;
+}
+
+/* Light mode input styles */
+.light input,
+.light select,
+.light textarea {
+  color-scheme: light;
 }

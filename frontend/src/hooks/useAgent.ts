@@ -9,6 +9,7 @@ interface UseAgentReturn {
   error: string | null;
   runAgent: (config: AgentConfig) => Promise<void>;
   clearLogs: () => void;
+  clearError: () => void;
 }
 
 let logIdCounter = 0;
@@ -32,6 +33,10 @@ export function useAgent(): UseAgentReturn {
     setLogs([]);
     setCode('');
     setScreenshots([]);
+    setError(null);
+  }, []);
+
+  const clearError = useCallback(() => {
     setError(null);
   }, []);
 
@@ -176,5 +181,6 @@ export function useAgent(): UseAgentReturn {
     error,
     runAgent,
     clearLogs,
+    clearError,
   };
 }

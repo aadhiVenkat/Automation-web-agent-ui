@@ -8,15 +8,21 @@ export default {
   theme: {
     extend: {
       colors: {
-        background: '#0f0f0f',
-        foreground: '#fafafa',
-        card: '#1a1a1a',
-        border: '#2a2a2a',
+        // Dynamic colors based on theme
+        background: 'var(--color-background)',
+        foreground: 'var(--color-foreground)',
+        surface: 'var(--color-surface)',
+        'surface-hover': 'var(--color-surface-hover)',
+        'surface-alt': 'var(--color-surface-alt)',
+        card: 'var(--color-card)',
+        border: 'var(--color-border)',
+        muted: 'var(--color-muted)',
+        // Static colors
         primary: '#3b82f6',
         'primary-hover': '#2563eb',
-        muted: '#6b7280',
         success: '#22c55e',
         error: '#ef4444',
+        warning: '#f59e0b',
       },
     },
   },
