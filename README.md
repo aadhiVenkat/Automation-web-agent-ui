@@ -16,6 +16,36 @@ BrowserForge AI combines cutting-edge AI with browser automation to transform na
 
 ## ✨ Features
 
+### UI Screenshots
+
+<details>
+<summary>📸 Click to view UI screenshots</summary>
+
+#### Configuration Tab (Dark Theme)
+The configuration tab provides an intuitive interface for setting up your automation task:
+- **LLM Provider Selection**: Choose between Google Gemini, Perplexity AI, or Hugging Face
+- **Target Configuration**: Enter URL with optional HTTP basic authentication
+- **Task Description**: Natural language input for automation tasks
+- **Output Settings**: Select test framework (Playwright) and language (TypeScript, Python, JavaScript)
+- **Advanced Options**: Toggle headless mode, task enhancement, and structured execution
+
+#### Task Details Tab
+Monitor your automation in real-time:
+- **Status Overview**: Current state, total steps, tool calls, screenshots count
+- **Execution Log**: Color-coded logs with timestamps and copy functionality
+
+#### Reports Tab
+Access your automation results:
+- **Screenshots Sub-tab**: Grid or single view, fullscreen mode, download individual or all
+- **Generated Code Sub-tab**: Syntax-highlighted code with copy and download options
+
+#### Theme Support
+- 🌙 **Dark Theme**: Easy on the eyes for extended use
+- ☀️ **Light Theme**: Softer tones for well-lit environments
+- 🔄 **System Detection**: Automatically matches your OS preference
+
+</details>
+
 ### Backend (FastAPI)
 - 🧠 **AI-Powered Agent**: Intelligent browser automation using LLMs
 - 🌐 **Playwright Integration**: Robust browser control with Chromium
@@ -26,8 +56,11 @@ BrowserForge AI combines cutting-edge AI with browser automation to transform na
 
 ### Frontend (React)
 - 🎨 **Modern UI**: Clean, responsive interface with Tailwind CSS
+- 🌓 **Dark/Light Theme**: System-aware theme with manual toggle
+- 📑 **Tabbed Interface**: Organized Configuration, Task Details, and Reports tabs
 - 💻 **Code Editor**: Monaco editor with syntax highlighting
-- 📊 **Live Dashboard**: Real-time logs and screenshot carousel
+- 📊 **Live Dashboard**: Real-time logs with status indicators
+- 📸 **Screenshot Gallery**: Grid/single view with fullscreen and download options
 - � **URL Authentication**: Support for HTTP basic auth on target sites
 - 🎯 **Advanced Options**: Headless mode, boost prompts, structured execution
 
@@ -286,10 +319,14 @@ npm run build
 ### Frontend (`frontend/`)
 
 - **components/**: Reusable React components
-  - `ConfigPanel`: Agent configuration form
-  - `LogsPanel`: Real-time log streaming
-  - `BrowserPreview`: Screenshot carousel
-  - `CodeEditor`: Monaco-based code editor
+  - `ConfigurationTab`: Agent configuration with LLM, target, task & output settings
+  - `TaskDetailsTab`: Real-time execution logs and status monitoring
+  - `ReportsTab`: Screenshots gallery and generated code viewer
+  - `ScreenshotGallery`: Interactive screenshot viewer with grid/single views
+  - `CodeReport`: Monaco-based code editor for generated tests
+  - `ThemeToggle`: Dark/Light theme switcher
+- **context/**: React context providers
+  - `ThemeContext`: Theme management with system preference detection
 - **hooks/**: Custom React hooks
   - `useAgent`: API integration and state management
 - **types.ts**: TypeScript type definitions

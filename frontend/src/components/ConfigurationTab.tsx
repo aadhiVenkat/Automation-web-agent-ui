@@ -16,8 +16,8 @@ const PROVIDERS: { value: LLMProvider; label: string; description: string }[] = 
   { value: 'hf', label: 'Hugging Face', description: 'Open-source models' },
 ];
 
-const FRAMEWORKS: { value: Framework; label: string }[] = [
-  { value: 'playwright', label: 'Playwright' },
+const FRAMEWORKS: { value: Framework; label: string; icon: string; description: string }[] = [
+  { value: 'playwright', label: 'Playwright', icon: '🎭', description: 'Modern E2E testing' },
 ];
 
 const LANGUAGES: { value: Language; label: string; icon: string }[] = [
@@ -217,40 +217,65 @@ export default function ConfigurationTab({ onSubmit, isRunning }: ConfigurationT
             <h3 className="text-lg font-semibold">Output Settings</h3>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">Framework</label>
-              <select
-                value={framework}
-                onChange={(e) => setFramework(e.target.value as Framework)}
-                className="w-full bg-surface border border-border rounded-xl px-4 py-3 text-foreground focus:outline-none focus:ring-2 focus:ring-primary transition-all"
-                disabled={isRunning}
-              >
-                {FRAMEWORKS.map((f) => (
-                  <option key={f.value} value={f.value}>{f.label}</option>
-                ))}
-              </select>
+          {/* Framework Selection */}
+          <div className="space-y-3">
+            <label className="text-sm font-medium text-foreground">Test Framework</label>
+            <div className="grid grid-cols-1 gap-3">
+              {FRAMEWORKS.map((f) => (
+                <button
+                  key={f.value}
+                  type="button"
+                  onClick={() => setFramework(f.value)}
+                  disabled={isRunning}
+                  className={`flex items-center gap-4 p-4 rounded-xl border-2 text-left transition-all ${
+                    framework === f.value
+                      ? 'border-primary bg-primary/5 ring-2 ring-primary/20'
+                      : 'border-border hover:border-primary/50 bg-surface'
+                  } disabled:opacity-50 disabled:cursor-not-allowed`}
+                >
+                  <span className="text-2xl">{f.icon}</span>
+                  <div className="flex-1">
+                    <span className="font-semibold block">{f.label}</span>
+                    <span className="text-xs text-muted">{f.description}</span>
+                  </div>
+                  {framework === f.value && (
+                    <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center">
+                      <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                  )}
+                </button>
+              ))}
             </div>
+          </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">Language</label>
-              <div className="flex gap-2">
-                {LANGUAGES.map((l) => (
-                  <button
-                    key={l.value}
-                    type="button"
-                    onClick={() => setLanguage(l.value)}
-                    disabled={isRunning}
-                    className={`flex-1 py-3 px-4 rounded-xl border-2 transition-all ${
-                      language === l.value
-                        ? 'border-primary bg-primary/5'
-                        : 'border-border hover:border-primary/50 bg-surface'
-                    } disabled:opacity-50`}
-                  >
-                    <span className="font-medium">{l.icon}</span>
-                  </button>
-                ))}
-              </div>
+          {/* Language Selection */}
+          <div className="space-y-3">
+            <label className="text-sm font-medium text-foreground">Output Language</label>
+            <div className="grid grid-cols-3 gap-3">
+              {LANGUAGES.map((l) => (
+                <button
+                  key={l.value}
+                  type="button"
+                  onClick={() => setLanguage(l.value)}
+                  disabled={isRunning}
+                  className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all ${
+                    language === l.value
+                      ? 'border-primary bg-primary/5 ring-2 ring-primary/20'
+                      : 'border-border hover:border-primary/50 bg-surface'
+                  } disabled:opacity-50 disabled:cursor-not-allowed`}
+                >
+                  <span className={`text-lg font-bold px-2 py-1 rounded ${
+                    l.value === 'typescript' ? 'bg-blue-500/20 text-blue-500' :
+                    l.value === 'python' ? 'bg-yellow-500/20 text-yellow-600' :
+                    'bg-amber-500/20 text-amber-500'
+                  }`}>
+                    {l.icon}
+                  </span>
+                  <span className="text-sm font-medium">{l.label}</span>
+                </button>
+              ))}
             </div>
           </div>
         </section>
