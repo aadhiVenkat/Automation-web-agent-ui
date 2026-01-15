@@ -532,6 +532,43 @@ TOOL_DEFINITIONS: list[Tool] = [
         ],
         category="interaction",
     ),
+    
+    # DOM Indexing Tools - More reliable than CSS selectors
+    Tool(
+        name="get_interactive_elements",
+        description="Get a numbered list of all interactive elements (buttons, links, inputs, etc.) on the page. Each element has an index number that can be used with click_by_index or fill_by_index. USE THIS FIRST to see what elements are available before clicking!",
+        parameters=[],
+        category="info",
+    ),
+    Tool(
+        name="click_by_index",
+        description="Click an element by its index number from get_interactive_elements. More reliable than CSS selectors for dynamic pages. Call get_interactive_elements first to see available indices.",
+        parameters=[
+            ToolParameter(
+                name="index",
+                type="integer",
+                description="Index number of the element to click (from get_interactive_elements output)",
+            ),
+        ],
+        category="interaction",
+    ),
+    Tool(
+        name="fill_by_index",
+        description="Fill an input field by its index number from get_interactive_elements. More reliable than CSS selectors for dynamic pages.",
+        parameters=[
+            ToolParameter(
+                name="index",
+                type="integer",
+                description="Index number of the input element to fill (from get_interactive_elements output)",
+            ),
+            ToolParameter(
+                name="value",
+                type="string",
+                description="Text value to fill into the input",
+            ),
+        ],
+        category="input",
+    ),
 ]
 
 

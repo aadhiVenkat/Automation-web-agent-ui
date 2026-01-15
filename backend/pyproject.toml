@@ -3,14 +3,14 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "browser-agent-backend"
+name = "browserforge-ai-backend"
 version = "0.1.0"
-description = "FastAPI backend for Browser Agent Platform"
+description = "FastAPI backend for BrowserForge AI"
 readme = "README.md"
 requires-python = ">=3.11"
 license = {text = "MIT"}
 authors = [
-    {name = "Browser Agent Team"}
+    {name = "BrowserForge AI Team"}
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",

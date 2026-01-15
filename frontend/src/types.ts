@@ -13,6 +13,9 @@ export interface AgentConfig {
   useBoostPrompt?: boolean;  // Set false for more consistent behavior
   useStructuredExecution?: boolean;  // Break down complex tasks into steps
   verifyEachStep?: boolean;  // Verify each step completes (with structured execution)
+  // URL authentication (for sites requiring basic auth)
+  urlUsername?: string;
+  urlPassword?: string;
 }
 
 export interface AgentEvent {

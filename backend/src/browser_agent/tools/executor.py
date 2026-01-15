@@ -46,6 +46,11 @@ class ToolExecutor:
             "extract_modal_content": self._extract_modal_content,
             "find_and_click": self._find_and_click,
             
+            # DOM Indexing (reliable element selection)
+            "get_interactive_elements": self._get_interactive_elements,
+            "click_by_index": self._click_by_index,
+            "fill_by_index": self._fill_by_index,
+            
             # Input
             "fill": self._fill,
             "type_text": self._type_text,
@@ -297,4 +302,17 @@ class ToolExecutor:
     async def _screenshot(self, params: dict) -> dict:
         return await self.browser.screenshot(
             full_page=params.get("full_page", False),
+        )
+
+    # DOM Indexing handlers
+    async def _get_interactive_elements(self, params: dict) -> dict:
+        return await self.browser.get_interactive_elements()
+
+    async def _click_by_index(self, params: dict) -> dict:
+        return await self.browser.click_by_index(index=params["index"])
+
+    async def _fill_by_index(self, params: dict) -> dict:
+        return await self.browser.fill_by_index(
+            index=params["index"],
+            value=params["value"],
         )

@@ -18,7 +18,7 @@ export default function App() {
         <div className="flex items-center gap-3">
           <Bot className="w-8 h-8 text-primary" />
           <div>
-            <h1 className="text-xl font-bold">Browser Agent Platform</h1>
+            <h1 className="text-xl font-bold">BrowserForge AI</h1>
             <p className="text-sm text-muted">Natural Language → Browser Automation → Test Code</p>
           </div>
         </div>

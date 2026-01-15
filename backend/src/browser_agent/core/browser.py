@@ -33,6 +33,7 @@ class BrowserWrapper:
         viewport_width: int = 1280,
         viewport_height: int = 720,
         timeout: int = 30000,
+        http_credentials: Optional[dict] = None,
     ) -> None:
         """Initialize browser wrapper.
         
@@ -41,11 +42,13 @@ class BrowserWrapper:
             viewport_width: Browser viewport width.
             viewport_height: Browser viewport height.
             timeout: Default timeout in milliseconds.
+            http_credentials: Optional dict with 'username' and 'password' for HTTP basic auth.
         """
         self.headless = headless
         self.viewport_width = viewport_width
         self.viewport_height = viewport_height
         self.timeout = timeout
+        self.http_credentials = http_credentials
         
         self._playwright: Optional[Playwright] = None
         self._browser: Optional[Browser] = None
@@ -67,9 +70,17 @@ class BrowserWrapper:
         self._browser = await self._playwright.chromium.launch(
             headless=self.headless,
         )
-        self._context = await self._browser.new_context(
-            viewport={"width": self.viewport_width, "height": self.viewport_height},
-        )
+        
+        # Build context options
+        context_options = {
+            "viewport": {"width": self.viewport_width, "height": self.viewport_height},
+        }
+        
+        # Add HTTP basic auth credentials if provided
+        if self.http_credentials:
+            context_options["http_credentials"] = self.http_credentials
+        
+        self._context = await self._browser.new_context(**context_options)
         self._page = await self._context.new_page()
         self._page.set_default_timeout(self.timeout)
 

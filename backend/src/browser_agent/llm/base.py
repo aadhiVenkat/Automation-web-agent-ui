@@ -1,7 +1,7 @@
 """Base LLM client interface for agent orchestration."""
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, AsyncGenerator, Optional
 
 
@@ -14,6 +14,13 @@ class ToolCall:
 
 
 @dataclass
+class ImageData:
+    """Represents an image for vision-enabled LLMs."""
+    base64_data: str  # Base64-encoded image data
+    mime_type: str = "image/jpeg"  # MIME type (image/jpeg, image/png, etc.)
+
+
+@dataclass
 class LLMMessage:
     """A message in the conversation."""
     role: str  # 'system', 'user', 'assistant', 'tool'
@@ -21,6 +28,7 @@ class LLMMessage:
     tool_calls: Optional[list[ToolCall]] = None
     tool_call_id: Optional[str] = None  # For tool response messages
     name: Optional[str] = None  # Tool name for tool responses
+    images: Optional[list[ImageData]] = None  # Images for vision models
 
 
 @dataclass

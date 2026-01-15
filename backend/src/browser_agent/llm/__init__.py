@@ -2,7 +2,7 @@
 
 from typing import Optional
 
-from browser_agent.llm.base import BaseLLMClient, LLMMessage, LLMResponse, ToolCall
+from browser_agent.llm.base import BaseLLMClient, ImageData, LLMMessage, LLMResponse, ToolCall
 from browser_agent.llm.gemini import GeminiClient
 from browser_agent.llm.huggingface import HuggingFaceClient
 from browser_agent.llm.perplexity import PerplexityClient
@@ -40,6 +40,7 @@ def create_llm_client(
 
 __all__ = [
     "BaseLLMClient",
+    "ImageData",
     "LLMMessage",
     "LLMResponse",
     "ToolCall",

@@ -65,6 +65,14 @@ class AgentService:
             return
 
         # Configure agent
+        # Build HTTP credentials if provided
+        http_credentials = None
+        if request.url_username and request.url_password:
+            http_credentials = {
+                "username": request.url_username,
+                "password": request.url_password,
+            }
+        
         config = AgentConfig(
             max_steps=30,
             headless=request.headless,  # User can set to false to see browser
@@ -75,6 +83,7 @@ class AgentService:
             temperature=0.0,  # Deterministic by default
             use_structured_execution=request.use_structured_execution,  # Break down complex tasks
             verify_each_step=request.verify_each_step,  # Verify steps complete
+            http_credentials=http_credentials,  # URL authentication
         )
 
         # Create and run agent

@@ -4,15 +4,17 @@ import asyncio
 import json
 import logging
 import re
+import time
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, AsyncGenerator, Optional
 
 from browser_agent.core.sync_browser import AsyncBrowserAdapter
-from browser_agent.llm import BaseLLMClient, LLMMessage, LLMResponse, ToolCall, create_llm_client
+from browser_agent.llm import BaseLLMClient, ImageData, LLMMessage, LLMResponse, ToolCall, create_llm_client
 from browser_agent.models.agent import Framework, Language
 from browser_agent.models.codegen import TestStep
 from browser_agent.services.codegen import CodeGenService
+from browser_agent.telemetry import TelemetryCollector, EventType
 from browser_agent.tools import ToolExecutor, get_tools_for_openai
 
 logger = logging.getLogger(__name__)
@@ -197,6 +199,26 @@ class AgentConfig:
     # Structured execution for complex tasks
     use_structured_execution: bool = True  # Decompose task into steps for consistency
     verify_each_step: bool = True  # Verify step completion before proceeding
+    
+    # URL authentication (HTTP basic auth for target site)
+    http_credentials: Optional[dict] = None  # {'username': 'user', 'password': 'pass'}
+    
+    # Failure recovery settings
+    max_failures: int = 5  # Max total failures before stopping
+    max_consecutive_failures: int = 3  # Max consecutive failures before recovery
+    recovery_strategies: list[str] = field(default_factory=lambda: [
+        "dismiss_overlays",  # Try dismissing popups
+        "scroll_and_retry",  # Scroll and retry
+        "get_interactive_elements",  # Re-index elements
+        "refresh_page",  # Refresh and retry
+    ])
+    
+    # Vision settings
+    use_vision: bool = True  # Send screenshots to LLM for visual understanding
+    vision_interval: int = 3  # Send screenshot every N steps (0 = every step)
+    
+    # Telemetry settings
+    enable_telemetry: bool = True  # Enable detailed telemetry collection
 
 
 @dataclass
@@ -210,6 +232,38 @@ class AgentStep:
     screenshot: Optional[str] = None
     timestamp: datetime = field(default_factory=datetime.utcnow)
     error: Optional[str] = None
+    duration_ms: Optional[float] = None
+
+
+@dataclass
+class FailureTracker:
+    """Tracks failures for recovery logic."""
+    total_failures: int = 0
+    consecutive_failures: int = 0
+    last_error: Optional[str] = None
+    recovery_attempts: int = 0
+    failed_tools: dict[str, int] = field(default_factory=dict)
+    
+    def record_failure(self, tool_name: Optional[str], error: str) -> None:
+        """Record a failure."""
+        self.total_failures += 1
+        self.consecutive_failures += 1
+        self.last_error = error
+        if tool_name:
+            self.failed_tools[tool_name] = self.failed_tools.get(tool_name, 0) + 1
+    
+    def record_success(self) -> None:
+        """Record a success, resetting consecutive failures."""
+        self.consecutive_failures = 0
+        self.last_error = None
+    
+    def should_stop(self, max_failures: int) -> bool:
+        """Check if agent should stop due to too many failures."""
+        return self.total_failures >= max_failures
+    
+    def needs_recovery(self, max_consecutive: int) -> bool:
+        """Check if recovery action is needed."""
+        return self.consecutive_failures >= max_consecutive
 
 
 class Agent:
@@ -316,6 +370,10 @@ Remember: Finding something is NOT the same as acting on it. Always verify navig
         self._task_steps: list[TaskStep] = []  # Decomposed task steps
         self._current_step_index: int = 0  # Current step being executed
         self._done_criteria: str = ""  # How to verify task completion
+        # Telemetry and failure tracking
+        self.telemetry: Optional[TelemetryCollector] = None
+        self.failure_tracker = FailureTracker()
+        self._element_map_cache: dict[str, Any] = {}
 
     def _prune_messages(self, max_messages: int = 12) -> None:
         """Prune old messages to prevent context overflow.
@@ -399,11 +457,17 @@ Remember: Finding something is NOT the same as acting on it. Always verify navig
         yield {"type": "log", "message": f"Starting agent for task: {task}"}
         yield {"type": "log", "message": f"Target URL: {url}"}
         
+        # Initialize telemetry if enabled
+        if self.config.enable_telemetry:
+            self.telemetry = TelemetryCollector(task_description=task, start_url=url)
+            yield {"type": "log", "message": "Telemetry enabled"}
+        
         # Initialize browser
         self.browser = AsyncBrowserAdapter(
             headless=self.config.headless,
             viewport_width=self.config.viewport_width,
             viewport_height=self.config.viewport_height,
+            http_credentials=self.config.http_credentials,
         )
         self.executor = ToolExecutor(self.browser)
         
@@ -485,8 +549,42 @@ Current step: STEP 1
                 step_count += 1
                 yield {"type": "log", "message": f"--- Step {step_count} ---"}
                 
+                # Check if we should stop due to too many failures
+                if self.failure_tracker.should_stop(self.config.max_failures):
+                    yield {"type": "error", "message": f"Stopping: Too many failures ({self.failure_tracker.total_failures})"}
+                    break
+                
+                # Check if we need recovery
+                if self.failure_tracker.needs_recovery(self.config.max_consecutive_failures):
+                    yield {"type": "log", "message": f"Attempting recovery after {self.failure_tracker.consecutive_failures} consecutive failures"}
+                    recovery_success = await self._attempt_recovery()
+                    if recovery_success:
+                        yield {"type": "log", "message": "Recovery successful"}
+                    else:
+                        yield {"type": "log", "message": "Recovery failed, continuing"}
+                
                 # Get LLM response
                 try:
+                    # Add vision if enabled and interval matches
+                    if self.config.use_vision and step_count % self.config.vision_interval == 0:
+                        try:
+                            ss_result = await self.browser.screenshot()
+                            if ss_result.get("success") and ss_result.get("screenshot"):
+                                from base64 import b64encode
+                                img_data = ImageData(
+                                    base64_data=ss_result["screenshot"],
+                                    mime_type="image/png"
+                                )
+                                # Add vision message
+                                self.messages.append(LLMMessage(
+                                    role="user",
+                                    content="Current page state (visual)",
+                                    images=[img_data]
+                                ))
+                                yield {"type": "log", "message": "Vision: Screenshot sent to LLM"}
+                        except Exception as e:
+                            yield {"type": "log", "message": f"Vision capture failed: {e}"}
+                    
                     response = await self.llm.chat(
                         messages=self.messages,
                         tools=tools,
@@ -551,10 +649,23 @@ Current step: STEP 1
                         }
                         
                         # Execute the tool
+                        import time
+                        start_time = time.time()
                         result = await self.executor.execute(
                             tool_call.name,
                             tool_call.arguments,
                         )
+                        duration_ms = int((time.time() - start_time) * 1000)
+                        
+                        # Record telemetry
+                        if self.telemetry:
+                            self.telemetry.record_tool_execution(
+                                tool_name=tool_call.name,
+                                duration_ms=duration_ms,
+                                success=result.get("success", False),
+                                error=result.get("error"),
+                                args=tool_call.arguments
+                            )
                         
                         # Record step
                         step = AgentStep(
@@ -563,9 +674,12 @@ Current step: STEP 1
                             tool_args=tool_call.arguments,
                             tool_result=result,
                             llm_response=response.content,
+                            duration_ms=duration_ms,
                         )
                         
                         if result.get("success"):
+                            # Record success in failure tracker
+                            self.failure_tracker.record_success()
                             yield {
                                 "type": "log",
                                 "message": f"Result: Success - {self._summarize_result(result)}",
@@ -605,6 +719,8 @@ Current step: STEP 1
                         else:
                             error = result.get("error", "Unknown error")
                             step.error = error
+                            # Record failure in failure tracker
+                            self.failure_tracker.record_failure(tool_call.name, error)
                             yield {"type": "log", "message": f"Result: Failed - {error}"}
                         
                         self.history.append(step)
@@ -689,6 +805,11 @@ Current step: STEP 1
             code = await self._generate_test_code(task, url)
             yield {"type": "code", "code": code}
             
+            # Finalize telemetry
+            if self.telemetry:
+                metrics = self.telemetry.finalize()
+                yield {"type": "log", "message": f"Telemetry: {metrics.total_steps} steps, {metrics.successful_steps} successful, {metrics.failed_steps} failed"}
+            
             # Final status
             if task_complete:
                 yield {"type": "complete", "message": "Task completed successfully", "steps": step_count}
@@ -703,6 +824,61 @@ Current step: STEP 1
             if self.browser:
                 await self.browser.close()
                 yield {"type": "log", "message": "Browser closed"}
+    
+    async def _attempt_recovery(self) -> bool:
+        """Attempt recovery from consecutive failures.
+        
+        Returns:
+            bool: True if recovery succeeded, False otherwise.
+        """
+        if not self.browser or not self.executor:
+            return False
+        
+        for strategy in self.config.recovery_strategies:
+            try:
+                if strategy == "dismiss_overlays":
+                    result = await self.executor.execute("dismiss_overlays", {})
+                    if result.get("success"):
+                        self.failure_tracker.record_success()
+                        if self.telemetry:
+                            self.telemetry.record_recovery(strategy, True, None)
+                        return True
+                
+                elif strategy == "scroll_and_retry":
+                    result = await self.executor.execute("scroll", {"direction": "down", "amount": 300})
+                    if result.get("success"):
+                        self.failure_tracker.record_success()
+                        if self.telemetry:
+                            self.telemetry.record_recovery(strategy, True, None)
+                        return True
+                
+                elif strategy == "get_interactive_elements":
+                    result = await self.executor.execute("get_interactive_elements", {})
+                    if result.get("success") and result.get("elements"):
+                        # Cache element map for later use
+                        self._element_map_cache = {str(i): el for i, el in enumerate(result["elements"])}
+                        self.failure_tracker.record_success()
+                        if self.telemetry:
+                            self.telemetry.record_recovery(strategy, True, None)
+                        return True
+                
+                elif strategy == "refresh_page":
+                    page_info = await self.browser.get_page_info()
+                    current_url = page_info.get("url", "")
+                    if current_url:
+                        result = await self.browser.goto(current_url)
+                        if result.get("success"):
+                            self.failure_tracker.record_success()
+                            if self.telemetry:
+                                self.telemetry.record_recovery(strategy, True, None)
+                            return True
+            
+            except Exception as e:
+                if self.telemetry:
+                    self.telemetry.record_recovery(strategy, False, str(e))
+                continue
+        
+        return False
 
     def _summarize_result(self, result: dict) -> str:
         """Create a brief summary of a tool result."""

@@ -100,6 +100,16 @@ class AgentRequest(BaseModel):
         alias="verifyEachStep",
         description="Verify each step completes before moving to next (only used with structured execution).",
     )
+    url_username: Optional[str] = Field(
+        default=None,
+        alias="urlUsername",
+        description="Username for URL basic authentication (if the target site requires login).",
+    )
+    url_password: Optional[str] = Field(
+        default=None,
+        alias="urlPassword",
+        description="Password for URL basic authentication (if the target site requires login).",
+    )
 
     model_config = {
         "populate_by_name": True,

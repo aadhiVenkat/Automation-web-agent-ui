@@ -6,7 +6,7 @@ from typing import Any, AsyncGenerator, Optional
 
 import httpx
 
-from browser_agent.llm.base import BaseLLMClient, LLMMessage, LLMResponse, ToolCall
+from browser_agent.llm.base import BaseLLMClient, ImageData, LLMMessage, LLMResponse, ToolCall
 from browser_agent.llm.retry import with_retry
 
 
@@ -150,6 +150,7 @@ class GeminiClient(BaseLLMClient):
         """Convert LLMMessages to Gemini format.
         
         Note: System messages are handled separately via systemInstruction field.
+        Supports images for vision-enabled models.
         """
         contents = []
         
@@ -191,9 +192,24 @@ class GeminiClient(BaseLLMClient):
                 })
             
             elif msg.role == "user":
+                parts = []
+                # Add text content if present
+                if msg.content:
+                    parts.append({"text": msg.content})
+                
+                # Add images for vision support
+                if msg.images:
+                    for img in msg.images:
+                        parts.append({
+                            "inlineData": {
+                                "mimeType": img.mime_type,
+                                "data": img.base64_data,
+                            }
+                        })
+                
                 contents.append({
                     "role": "user",
-                    "parts": [{"text": msg.content or ""}]
+                    "parts": parts if parts else [{"text": ""}]
                 })
         
         return contents

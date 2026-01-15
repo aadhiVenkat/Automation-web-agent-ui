@@ -1,6 +1,6 @@
-# 🤖 Browser Agent Backend
+# 🤖 BrowserForge AI - Backend
 
-A powerful FastAPI backend for the Browser Agent Platform that enables AI-powered browser automation and Playwright test code generation.
+A powerful FastAPI backend for BrowserForge AI that enables AI-powered browser automation and Playwright test code generation.
 
 ## 📋 Table of Contents
 
@@ -17,7 +17,7 @@ A powerful FastAPI backend for the Browser Agent Platform that enables AI-powere
 
 ## 🎯 Overview
 
-The Browser Agent Backend is a FastAPI-based service that orchestrates AI-powered browser automation. It takes natural language instructions, uses LLMs (Large Language Models) to plan and execute browser actions, and generates production-ready Playwright test code.
+The BrowserForge AI Backend is a FastAPI-based service that orchestrates AI-powered browser automation. It takes natural language instructions, uses LLMs (Large Language Models) to plan and execute browser actions, and generates production-ready Playwright test code.
 
 ### How It Works
 
@@ -225,8 +225,14 @@ Run a browser automation agent with streaming output.
   "language": "typescript",
   "headless": true,
   "useBoostPrompt": true,
-  "useStructuredExecution": false
+  "useStructuredExecution": false,
+  "urlUsername": "optional_http_auth_username",
+  "urlPassword": "optional_http_auth_password"
 }
+```
+
+**URL Authentication:**
+If the target URL requires HTTP basic authentication (e.g., staging environments protected by basic auth), provide `urlUsername` and `urlPassword` fields. These credentials will be used by Playwright to authenticate when navigating to the URL.
 ```
 
 **Response:** Server-Sent Events (SSE) stream with event types:

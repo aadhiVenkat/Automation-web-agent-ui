@@ -38,12 +38,22 @@ class SyncBrowserWrapper:
         viewport_width: int = 1280,
         viewport_height: int = 720,
         timeout: int = 30000,
+        http_credentials: Optional[dict] = None,
     ) -> None:
-        """Initialize browser wrapper."""
+        """Initialize browser wrapper.
+        
+        Args:
+            headless: Run browser in headless mode.
+            viewport_width: Browser viewport width.
+            viewport_height: Browser viewport height.
+            timeout: Default timeout in milliseconds.
+            http_credentials: Optional dict with 'username' and 'password' for HTTP basic auth.
+        """
         self.headless = headless
         self.viewport_width = viewport_width
         self.viewport_height = viewport_height
         self.timeout = timeout
+        self.http_credentials = http_credentials
         
         self._playwright: Optional[Playwright] = None
         self._browser: Optional[Browser] = None
@@ -56,9 +66,17 @@ class SyncBrowserWrapper:
         self._browser = self._playwright.chromium.launch(
             headless=self.headless,
         )
-        self._context = self._browser.new_context(
-            viewport={"width": self.viewport_width, "height": self.viewport_height},
-        )
+        
+        # Build context options
+        context_options = {
+            "viewport": {"width": self.viewport_width, "height": self.viewport_height},
+        }
+        
+        # Add HTTP basic auth credentials if provided
+        if self.http_credentials:
+            context_options["http_credentials"] = self.http_credentials
+        
+        self._context = self._browser.new_context(**context_options)
         self._page = self._context.new_page()
         self._page.set_default_timeout(self.timeout)
 
@@ -1046,6 +1064,399 @@ class SyncBrowserWrapper:
         
         return {"success": False, "target": target, "error": "Could not find or click target with any strategy"}
 
+    def get_interactive_elements(self) -> dict:
+        """Get all interactive elements on the page with indices for click_by_index.
+        
+        Returns a list of interactive elements with:
+        - index: Unique index for click_by_index
+        - tag: HTML tag name
+        - type: Input type (for inputs)
+        - text: Visible text content
+        - selector: Best CSS selector for the element
+        - attributes: Key attributes (id, name, class, href, etc.)
+        - visible: Whether element is in viewport
+        - rect: Bounding box coordinates
+        
+        This is the primary method for DOM indexing, allowing the LLM to reference
+        elements by their index number rather than fragile CSS selectors.
+        """
+        self._show_action_indicator("INDEXING ELEMENTS", "")
+        
+        script = '''
+            () => {
+                const elements = [];
+                const interactiveSelectors = [
+                    'a[href]',
+                    'button',
+                    'input:not([type="hidden"])',
+                    'textarea',
+                    'select',
+                    '[role="button"]',
+                    '[role="link"]',
+                    '[role="checkbox"]',
+                    '[role="radio"]',
+                    '[role="tab"]',
+                    '[role="menuitem"]',
+                    '[onclick]',
+                    '[tabindex]:not([tabindex="-1"])',
+                    'label[for]',
+                ];
+                
+                const seen = new Set();
+                let index = 0;
+                
+                for (const selector of interactiveSelectors) {
+                    for (const el of document.querySelectorAll(selector)) {
+                        // Skip hidden elements
+                        const rect = el.getBoundingClientRect();
+                        if (rect.width === 0 || rect.height === 0) continue;
+                        
+                        const style = window.getComputedStyle(el);
+                        if (style.display === 'none' || style.visibility === 'hidden') continue;
+                        
+                        // Create unique key to avoid duplicates
+                        const key = `${el.tagName}-${el.id}-${el.name}-${rect.left}-${rect.top}`;
+                        if (seen.has(key)) continue;
+                        seen.add(key);
+                        
+                        // Build best selector
+                        let bestSelector = '';
+                        if (el.id) {
+                            bestSelector = '#' + el.id;
+                        } else if (el.name) {
+                            bestSelector = `[name="${el.name}"]`;
+                        } else if (el.getAttribute('data-testid')) {
+                            bestSelector = `[data-testid="${el.getAttribute('data-testid')}"]`;
+                        } else if (el.className && typeof el.className === 'string') {
+                            const mainClass = el.className.split(' ')[0];
+                            if (mainClass) bestSelector = '.' + mainClass;
+                        }
+                        
+                        // Get text content
+                        let text = (el.innerText || el.value || el.placeholder || el.title || el.alt || '').trim();
+                        text = text.slice(0, 100);  // Limit length
+                        
+                        // Check if in viewport
+                        const inViewport = (
+                            rect.top < window.innerHeight &&
+                            rect.bottom > 0 &&
+                            rect.left < window.innerWidth &&
+                            rect.right > 0
+                        );
+                        
+                        elements.push({
+                            index: index,
+                            tag: el.tagName.toLowerCase(),
+                            type: el.type || null,
+                            text: text,
+                            selector: bestSelector,
+                            attributes: {
+                                id: el.id || null,
+                                name: el.name || null,
+                                class: el.className?.toString().slice(0, 100) || null,
+                                href: el.href?.slice(0, 200) || null,
+                                placeholder: el.placeholder || null,
+                                ariaLabel: el.getAttribute('aria-label') || null,
+                                role: el.getAttribute('role') || null,
+                            },
+                            visible: inViewport,
+                            rect: {
+                                x: Math.round(rect.left),
+                                y: Math.round(rect.top),
+                                width: Math.round(rect.width),
+                                height: Math.round(rect.height),
+                            }
+                        });
+                        
+                        index++;
+                        
+                        // Limit total elements
+                        if (index >= 200) break;
+                    }
+                    if (index >= 200) break;
+                }
+                
+                return elements;
+            }
+        '''
+        
+        try:
+            elements = self.page.evaluate(script)
+            
+            # Store element map for click_by_index
+            self._element_map = elements
+            
+            # Add visual index labels to elements
+            self._add_element_labels(elements)
+            
+            return {
+                "success": True,
+                "elements": elements,
+                "count": len(elements),
+                "action": "get_interactive_elements"
+            }
+        except Exception as e:
+            return {
+                "success": False,
+                "error": str(e),
+                "action": "get_interactive_elements"
+            }
+
+    def _add_element_labels(self, elements: list) -> None:
+        """Add visual index labels to elements on the page."""
+        try:
+            # Remove existing labels
+            self.page.evaluate('''
+                () => {
+                    document.querySelectorAll('.__agent_index_label__').forEach(el => el.remove());
+                }
+            ''')
+            
+            # Add new labels
+            for el in elements[:50]:  # Limit to first 50 visible elements
+                if not el.get('visible'):
+                    continue
+                    
+                rect = el['rect']
+                index = el['index']
+                
+                self.page.evaluate(f'''
+                    () => {{
+                        const label = document.createElement('div');
+                        label.className = '__agent_index_label__';
+                        label.textContent = '{index}';
+                        label.style.cssText = `
+                            position: absolute;
+                            left: {rect['x'] - 5}px;
+                            top: {rect['y'] - 5}px;
+                            background: #3b82f6;
+                            color: white;
+                            padding: 2px 6px;
+                            border-radius: 10px;
+                            font-size: 11px;
+                            font-weight: bold;
+                            font-family: monospace;
+                            z-index: 999999;
+                            pointer-events: none;
+                            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+                        `;
+                        document.body.appendChild(label);
+                    }}
+                ''')
+            
+            # Auto-remove labels after 10 seconds
+            self.page.evaluate('''
+                () => {
+                    setTimeout(() => {
+                        document.querySelectorAll('.__agent_index_label__').forEach(el => el.remove());
+                    }, 10000);
+                }
+            ''')
+        except Exception:
+            pass  # Ignore label errors
+
+    def click_by_index(self, index: int) -> dict:
+        """Click an element by its index from get_interactive_elements.
+        
+        Args:
+            index: Index of element to click (from get_interactive_elements response)
+            
+        This is more reliable than CSS selectors for dynamic pages because:
+        1. The element is identified by its position in the indexed list
+        2. Multiple click strategies are attempted automatically
+        3. The element is scrolled into view before clicking
+        """
+        self._show_action_indicator(f"CLICK INDEX: {index}", "")
+        
+        # Check if we have an element map
+        if not hasattr(self, '_element_map') or not self._element_map:
+            # Try to rebuild element map
+            result = self.get_interactive_elements()
+            if not result.get('success'):
+                return {"success": False, "error": "Element map not available. Call get_interactive_elements first."}
+        
+        # Find element by index
+        element = None
+        for el in self._element_map:
+            if el['index'] == index:
+                element = el
+                break
+        
+        if not element:
+            return {
+                "success": False,
+                "index": index,
+                "error": f"Element with index {index} not found. Max index: {len(self._element_map) - 1}"
+            }
+        
+        # Try multiple click strategies
+        strategies = []
+        
+        # Strategy 1: Click by selector if available
+        if element.get('selector'):
+            try:
+                self.page.locator(element['selector']).first.scroll_into_view_if_needed()
+                self.page.click(element['selector'], timeout=5000)
+                return {
+                    "success": True,
+                    "index": index,
+                    "element": element,
+                    "strategy": "selector",
+                    "action": "click_by_index"
+                }
+            except Exception as e:
+                strategies.append(f"selector: {e}")
+        
+        # Strategy 2: Click by coordinates
+        try:
+            rect = element['rect']
+            x = rect['x'] + rect['width'] // 2
+            y = rect['y'] + rect['height'] // 2
+            
+            # Scroll element into view first
+            self.page.evaluate(f"window.scrollTo(0, {max(0, rect['y'] - 100)})")
+            self.page.wait_for_timeout(200)
+            
+            # Recalculate position after scroll
+            self.page.mouse.click(x, y)
+            return {
+                "success": True,
+                "index": index,
+                "element": element,
+                "strategy": "coordinates",
+                "action": "click_by_index"
+            }
+        except Exception as e:
+            strategies.append(f"coordinates: {e}")
+        
+        # Strategy 3: Click by text if available
+        if element.get('text'):
+            try:
+                result = self.click_text(element['text'][:50])
+                if result.get('success'):
+                    return {
+                        "success": True,
+                        "index": index,
+                        "element": element,
+                        "strategy": "text",
+                        "action": "click_by_index"
+                    }
+            except Exception as e:
+                strategies.append(f"text: {e}")
+        
+        # Strategy 4: JavaScript click on Nth element
+        try:
+            tag = element['tag']
+            self.page.evaluate(f'''
+                () => {{
+                    const elements = document.querySelectorAll('{tag}');
+                    let count = 0;
+                    for (const el of elements) {{
+                        const rect = el.getBoundingClientRect();
+                        if (rect.width > 0 && rect.height > 0) {{
+                            if (count === {index}) {{
+                                el.scrollIntoView({{block: 'center'}});
+                                el.click();
+                                return true;
+                            }}
+                            count++;
+                        }}
+                    }}
+                    return false;
+                }}
+            ''')
+            return {
+                "success": True,
+                "index": index,
+                "element": element,
+                "strategy": "js_nth",
+                "action": "click_by_index"
+            }
+        except Exception as e:
+            strategies.append(f"js_nth: {e}")
+        
+        return {
+            "success": False,
+            "index": index,
+            "element": element,
+            "error": f"All click strategies failed: {strategies}",
+            "action": "click_by_index"
+        }
+
+    def fill_by_index(self, index: int, value: str) -> dict:
+        """Fill an input element by its index from get_interactive_elements.
+        
+        Args:
+            index: Index of input element to fill
+            value: Text value to fill
+        """
+        self._show_action_indicator(f"FILL INDEX {index}: {value[:30]}", "")
+        
+        # Check if we have an element map
+        if not hasattr(self, '_element_map') or not self._element_map:
+            result = self.get_interactive_elements()
+            if not result.get('success'):
+                return {"success": False, "error": "Element map not available. Call get_interactive_elements first."}
+        
+        # Find element by index
+        element = None
+        for el in self._element_map:
+            if el['index'] == index:
+                element = el
+                break
+        
+        if not element:
+            return {
+                "success": False,
+                "index": index,
+                "error": f"Element with index {index} not found"
+            }
+        
+        # Verify it's an input-like element
+        if element['tag'] not in ('input', 'textarea', 'select'):
+            return {
+                "success": False,
+                "index": index,
+                "error": f"Element at index {index} is not an input ({element['tag']})"
+            }
+        
+        # Try to fill using selector
+        if element.get('selector'):
+            try:
+                self.page.fill(element['selector'], value)
+                return {
+                    "success": True,
+                    "index": index,
+                    "value": value,
+                    "element": element,
+                    "action": "fill_by_index"
+                }
+            except Exception:
+                pass
+        
+        # Fallback: Click and type
+        try:
+            click_result = self.click_by_index(index)
+            if click_result.get('success'):
+                self.page.keyboard.type(value)
+                return {
+                    "success": True,
+                    "index": index,
+                    "value": value,
+                    "element": element,
+                    "strategy": "click_and_type",
+                    "action": "fill_by_index"
+                }
+        except Exception as e:
+            pass
+        
+        return {
+            "success": False,
+            "index": index,
+            "value": value,
+            "error": "Could not fill element"
+        }
+
 
 class AsyncBrowserAdapter:
     """Adapter to run SyncBrowserWrapper in async context using thread pool."""
@@ -1056,12 +1467,22 @@ class AsyncBrowserAdapter:
         viewport_width: int = 1280,
         viewport_height: int = 720,
         timeout: int = 30000,
+        http_credentials: Optional[dict] = None,
     ) -> None:
-        """Initialize the adapter."""
+        """Initialize the adapter.
+        
+        Args:
+            headless: Run browser in headless mode.
+            viewport_width: Browser viewport width.
+            viewport_height: Browser viewport height.
+            timeout: Default timeout in milliseconds.
+            http_credentials: Optional dict with 'username' and 'password' for HTTP basic auth.
+        """
         self.headless = headless
         self.viewport_width = viewport_width
         self.viewport_height = viewport_height
         self.timeout = timeout
+        self.http_credentials = http_credentials
         self._browser: Optional[SyncBrowserWrapper] = None
         self._executor = ThreadPoolExecutor(max_workers=1)
 
@@ -1089,6 +1510,7 @@ class AsyncBrowserAdapter:
             viewport_width=self.viewport_width,
             viewport_height=self.viewport_height,
             timeout=self.timeout,
+            http_credentials=self.http_credentials,
         )
         await self._run_sync(self._browser.launch)
 
@@ -1240,3 +1662,13 @@ class AsyncBrowserAdapter:
 
     async def find_and_click(self, target: str, scroll_first: bool = True) -> dict:
         return await self._run_sync(self.browser.find_and_click, target, scroll_first)
+
+    # DOM Indexing methods for reliable element selection
+    async def get_interactive_elements(self) -> dict:
+        return await self._run_sync(self.browser.get_interactive_elements)
+
+    async def click_by_index(self, index: int) -> dict:
+        return await self._run_sync(self.browser.click_by_index, index)
+
+    async def fill_by_index(self, index: int, value: str) -> dict:
+        return await self._run_sync(self.browser.fill_by_index, index, value)

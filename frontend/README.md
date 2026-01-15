@@ -1,6 +1,6 @@
-# 🖥️ Browser Agent Frontend
+# 🖥️ BrowserForge AI - Frontend
 
-A modern React-based user interface for the Browser Agent Platform, enabling natural language browser automation with real-time feedback and test code generation.
+A modern React-based user interface for BrowserForge AI, enabling natural language browser automation with real-time feedback and test code generation.
 
 ## 📋 Table of Contents
 
@@ -21,7 +21,7 @@ A modern React-based user interface for the Browser Agent Platform, enabling nat
 
 ## 🎯 Overview
 
-The Browser Agent Frontend provides an intuitive interface for interacting with the Browser Agent Platform. Users can describe browser automation tasks in natural language, watch the agent execute actions in real-time through screenshots, and receive generated Playwright test code.
+The BrowserForge AI Frontend provides an intuitive interface for interacting with BrowserForge AI. Users can describe browser automation tasks in natural language, watch the agent execute actions in real-time through screenshots, and receive generated Playwright test code.
 
 ### Workflow
 
@@ -39,7 +39,7 @@ The Browser Agent Frontend provides an intuitive interface for interacting with 
 - **💻 Code Editor**: Monaco-based code editor with syntax highlighting
 - **🔄 Multi-Provider Support**: Google Gemini, Perplexity AI, and HuggingFace
 - **🌐 Multi-Language Output**: Generate TypeScript, Python, or JavaScript tests
-- **💾 Persistent Settings**: Auto-save configuration to localStorage
+- **� URL Authentication**: Support for HTTP basic auth on protected URLs
 - **🎯 Advanced Options**: Headless mode, boost prompts, structured execution
 
 ## 🛠️ Tech Stack
@@ -185,6 +185,7 @@ The main configuration form component with the following features:
 - **LLM Provider**: Dropdown to select AI provider (Gemini, Perplexity, HuggingFace)
 - **API Key**: Secure input for provider API key
 - **URL**: Target website URL for automation
+- **URL Authentication** (optional): Username and password for HTTP basic auth protected URLs
 - **Task**: Natural language task description (multiline textarea)
 - **Framework**: Test framework selection (Playwright)
 - **Language**: Output language (TypeScript, Python, JavaScript)
@@ -291,7 +292,10 @@ await runAgent({
   task: 'Click the login button',
   framework: 'playwright',
   language: 'typescript',
-  headless: true
+  headless: true,
+  // Optional: For URLs requiring HTTP basic auth
+  urlUsername: 'optional-username',
+  urlPassword: 'optional-password'
 });
 ```
 

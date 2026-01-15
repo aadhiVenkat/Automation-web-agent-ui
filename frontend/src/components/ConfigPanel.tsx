@@ -1,5 +1,5 @@
 import { useState, FormEvent } from 'react';
-import { Play, Settings, Key, Globe, Code, FileText, Monitor, ListChecks, Zap } from 'lucide-react';
+import { Play, Settings, Key, Globe, Code, FileText, Monitor, ListChecks, Zap, User, Lock, ChevronDown, ChevronUp } from 'lucide-react';
 import { AgentConfig, LLMProvider, Framework, Language } from '../types';
 
 interface ConfigPanelProps {
@@ -24,40 +24,21 @@ const LANGUAGES: { value: Language; label: string }[] = [
 ];
 
 export default function ConfigPanel({ onSubmit, isRunning }: ConfigPanelProps) {
-  const [provider, setProvider] = useState<LLMProvider>(() => 
-    (localStorage.getItem('provider') as LLMProvider) || 'gemini'
-  );
-  const [apiKey, setApiKey] = useState(() => localStorage.getItem('apiKey') || '');
-  const [url, setUrl] = useState(() => localStorage.getItem('url') || '');
+  const [provider, setProvider] = useState<LLMProvider>('gemini');
+  const [apiKey, setApiKey] = useState('');
+  const [url, setUrl] = useState('');
   const [task, setTask] = useState('');
-  const [framework, setFramework] = useState<Framework>(() => 
-    (localStorage.getItem('framework') as Framework) || 'playwright'
-  );
-  const [language, setLanguage] = useState<Language>(() => 
-    (localStorage.getItem('language') as Language) || 'typescript'
-  );
-  const [headless, setHeadless] = useState<boolean>(() => 
-    localStorage.getItem('headless') === 'true'
-  );
-  const [useBoostPrompt, setUseBoostPrompt] = useState<boolean>(() => 
-    localStorage.getItem('useBoostPrompt') !== 'false'  // Default true
-  );
-  const [useStructuredExecution, setUseStructuredExecution] = useState<boolean>(() => 
-    localStorage.getItem('useStructuredExecution') === 'true'  // Default false
-  );
+  const [framework, setFramework] = useState<Framework>('playwright');
+  const [language, setLanguage] = useState<Language>('typescript');
+  const [headless, setHeadless] = useState<boolean>(false);
+  const [useBoostPrompt, setUseBoostPrompt] = useState<boolean>(true);
+  const [useStructuredExecution, setUseStructuredExecution] = useState<boolean>(false);
+  const [showUrlAuth, setShowUrlAuth] = useState<boolean>(false);
+  const [urlUsername, setUrlUsername] = useState('');
+  const [urlPassword, setUrlPassword] = useState('');
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
-    
-    // Persist settings
-    localStorage.setItem('provider', provider);
-    localStorage.setItem('apiKey', apiKey);
-    localStorage.setItem('url', url);
-    localStorage.setItem('framework', framework);
-    localStorage.setItem('language', language);
-    localStorage.setItem('headless', headless.toString());
-    localStorage.setItem('useBoostPrompt', useBoostPrompt.toString());
-    localStorage.setItem('useStructuredExecution', useStructuredExecution.toString());
 
     onSubmit({ 
       apiKey, 
@@ -70,6 +51,8 @@ export default function ConfigPanel({ onSubmit, isRunning }: ConfigPanelProps) {
       useBoostPrompt,
       useStructuredExecution,
       verifyEachStep: useStructuredExecution,  // Enable verification with structured execution
+      urlUsername: urlUsername.trim() || undefined,
+      urlPassword: urlPassword.trim() || undefined,
     });
   };
 
@@ -128,6 +111,67 @@ export default function ConfigPanel({ onSubmit, isRunning }: ConfigPanelProps) {
             className="w-full bg-background border border-border rounded-md px-3 py-2 text-foreground placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-primary"
             disabled={isRunning}
           />
+        </div>
+
+        {/* URL Authentication (Optional) */}
+        <div className="border border-border rounded-md overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setShowUrlAuth(!showUrlAuth)}
+            className="w-full flex items-center justify-between p-3 bg-background hover:bg-card transition-colors"
+            disabled={isRunning}
+          >
+            <div className="flex items-center gap-2">
+              <Lock className="w-4 h-4 text-muted" />
+              <span className="text-sm font-medium text-foreground">URL Authentication</span>
+              <span className="text-xs text-muted">(optional)</span>
+            </div>
+            {showUrlAuth ? (
+              <ChevronUp className="w-4 h-4 text-muted" />
+            ) : (
+              <ChevronDown className="w-4 h-4 text-muted" />
+            )}
+          </button>
+          
+          {showUrlAuth && (
+            <div className="p-3 border-t border-border bg-card space-y-3">
+              <p className="text-xs text-muted">
+                If the target URL requires HTTP basic authentication, provide credentials below.
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-muted mb-1">
+                    <User className="w-3 h-3 inline mr-1" />
+                    Username
+                  </label>
+                  <input
+                    type="text"
+                    value={urlUsername}
+                    onChange={(e) => setUrlUsername(e.target.value)}
+                    placeholder="Enter username"
+                    className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-foreground placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-primary"
+                    disabled={isRunning}
+                    autoComplete="off"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-muted mb-1">
+                    <Lock className="w-3 h-3 inline mr-1" />
+                    Password
+                  </label>
+                  <input
+                    type="password"
+                    value={urlPassword}
+                    onChange={(e) => setUrlPassword(e.target.value)}
+                    placeholder="Enter password"
+                    className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-foreground placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-primary"
+                    disabled={isRunning}
+                    autoComplete="off"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Task Description */}
